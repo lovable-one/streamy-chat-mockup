@@ -14,3 +14,6 @@ export interface SuggestionCard {
   title: string;
   content: string;
 }
+
+// Re-export Observable from rxjs for easier importing
+export { Observable } from "rxjs";

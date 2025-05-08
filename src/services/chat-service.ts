@@ -1,5 +1,6 @@
 
 import { Message, SuggestionCard } from "../types/chat";
+import { Observable } from "rxjs";
 
 // Mock responses
 const mockResponses: Record<string, string> = {
@@ -90,11 +91,14 @@ export class ChatService {
       };
       
       // Add artificial delay before starting to respond
+      // Special case for "What can you do?" - add a 3-second delay
+      const initialDelay = message === "What can you do?" ? 3000 : 800;
+      
       setTimeout(() => {
         if (!signal.aborted) {
           emitNextChunk();
         }
-      }, 800);
+      }, initialDelay);
       
       // Cleanup function
       return () => {
