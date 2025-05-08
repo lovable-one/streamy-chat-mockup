@@ -1,12 +1,20 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+
+import { Chat } from "@/components/chat/Chat";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
-      </div>
+    <div className="flex flex-col min-h-screen bg-background">
+      <header className="border-b py-3 px-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold text-bot">CopilotUI</span>
+          </div>
+        </div>
+      </header>
+      
+      <main className="flex-1 flex flex-col">
+        <Chat />
+      </main>
     </div>
   );
 };
