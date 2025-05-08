@@ -55,12 +55,16 @@ function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
+// XXX This class can become an @rxfx/service, with its own managed loading state.
+// XXX It can reduce its own state as it streams, allow its loading state to be read,
+// XXX and allow for cancelation. It need not return the Observable of each response either..
 export class ChatService {
   private responseObserver: Observable<string> | null = null;
   private controller: AbortController | null = null;
 
   // Method to send a message and get streaming response
   sendMessage(message: string): Observable<string> {
+    // XXX rxfx allows cancelation w/o AbortController
     this.controller = new AbortController();
     const signal = this.controller.signal;
     
@@ -72,6 +76,7 @@ export class ChatService {
       
       // Function to emit the next chunk
       const emitNextChunk = () => {
+        // XXX Real Observable cancelation doesn't involve guard clauses like this
         if (signal.aborted) {
           subscriber.complete();
           return;
@@ -83,6 +88,7 @@ export class ChatService {
           subscriber.next(chunk);
           currentIndex += 3;
           
+          // XXX We don't need setTimeout - Observables themselves have the primitives they need.
           // Schedule the next chunk after a small delay (simulates typing)
           setTimeout(emitNextChunk, Math.random() * 100 + 50);
         } else {

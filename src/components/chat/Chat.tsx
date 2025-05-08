@@ -9,11 +9,18 @@ import { LoadingIndicator } from "./LoadingIndicator";
 import { Subscription } from "rxjs";
 
 export function Chat() {
+  // XXX State could be kept by the Chat Service if @rxfx/service
   const [messages, setMessages] = useState<Message[]>([]);
+  // XXX Loading can also be inferred from the Service directly
   const [isLoading, setIsLoading] = useState(false);
+
+
+  // XXX currentResponseId is a hack derived variable not needed in a cleaner implementation
   const [currentResponseId, setCurrentResponseId] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState(initialSuggestions);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // XXX This subscription should be a detail of the ChatService 
   const responseSubscription = useRef<Subscription | null>(null);
 
   // Scroll to bottom when messages change
@@ -23,6 +30,7 @@ export function Chat() {
     }
   }, [messages]);
 
+  // XXX This function can be basically only ChatService.send(content)
   // Handle sending a message
   const handleSendMessage = (content: string) => {
     // Add user message
@@ -31,9 +39,11 @@ export function Chat() {
       content,
       role: "user",
       createdAt: new Date(),
+      // XXX IsComplete is a hack not needed in a cleaner implementation
       isComplete: true
     };
     
+    // XXX ChatService detail
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
     
@@ -51,6 +61,7 @@ export function Chat() {
     
     setMessages((prev) => [...prev, assistantMessage]);
     
+    // XXX all of this can become part of ChatService
     // Get streaming response
     responseSubscription.current = chatService.sendMessage(content).subscribe({
       next: (chunk) => {
@@ -82,6 +93,7 @@ export function Chat() {
     });
   };
 
+  // XXX More details of ChatService
   // Handle stopping response
   const handleStopResponse = () => {
     if (responseSubscription.current) {
@@ -98,6 +110,7 @@ export function Chat() {
       );
     }
     
+    // XXX Loading state need not be manipulated outside of ChatService
     setIsLoading(false);
     setCurrentResponseId(null);
   };
