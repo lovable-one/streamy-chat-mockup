@@ -1,108 +1,78 @@
-
 import React, { useState, useRef, useEffect } from "react";
-import { Message } from "@/types/chat";
+import { UserMessage } from "@/types/chat";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { SuggestionCards } from "./SuggestionCards";
-import { chatService, initialSuggestions } from "@/services/chat-service";
+import {
+  chatRxFxService,
+  initialSuggestions,
+  generateId,
+  getSuggestionCards,
+} from "@/services/chat-service";
 import { LoadingIndicator } from "./LoadingIndicator";
-import { Subscription } from "rxjs";
+import { useService, useWhileMounted } from "@rxfx/react";
 
 export function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentResponseId, setCurrentResponseId] = useState<string | null>(null);
+  const { isActive, state: messages } = useService(chatRxFxService);
+
   const [suggestions, setSuggestions] = useState(initialSuggestions);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const responseSubscription = useRef<Subscription | null>(null);
+
+  // we need separate steate ONLY becaue we are wishing to include
+  // only the time before the first response as loading time - though
+  // it is still active and 'loading'/streaming after that
+  const [isLoading, setIsLoading] = useState(false);
 
   // Scroll to bottom when messages change
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Handle sending a message
+  // Handle loading state separate from Active
+  useWhileMounted(() =>
+    chatRxFxService.observe({
+      started() {
+        setIsLoading(true);
+      },
+      next() {
+        setIsLoading(false);
+      },
+      finalized() {
+        setIsLoading(false);
+      },
+    })
+  );
+
+  // Handle suggestions coming and going
+  useWhileMounted(() =>
+    chatRxFxService.observe({
+      finalized() {
+        console.log("Another one bites the dust!");
+        setSuggestions(getSuggestionCards(messages));
+      },
+      request() {
+        setSuggestions([]);
+      },
+    })
+  );
+
   const handleSendMessage = (content: string) => {
-    // Add user message
-    const userMessage: Message = {
-      id: Math.random().toString(36).substring(2, 15),
+    const userMessage: UserMessage = {
+      id: generateId(),
       content,
       role: "user",
       createdAt: new Date(),
-      isComplete: true
     };
-    
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-    
-    // Create placeholder for assistant message
-    const responseId = Math.random().toString(36).substring(2, 15);
-    setCurrentResponseId(responseId);
-    
-    const assistantMessage: Message = {
-      id: responseId,
-      content: "",
-      role: "assistant",
-      createdAt: new Date(),
-      isComplete: false
-    };
-    
-    setMessages((prev) => [...prev, assistantMessage]);
-    
-    // Get streaming response
-    responseSubscription.current = chatService.sendMessage(content).subscribe({
-      next: (chunk) => {
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.id === responseId
-              ? { ...msg, content: msg.content + chunk }
-              : msg
-          )
-        );
-      },
-      complete: () => {
-        setIsLoading(false);
-        setCurrentResponseId(null);
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.id === responseId ? { ...msg, isComplete: true } : msg
-          )
-        );
-        
-        // Update suggestions based on conversation
-        setSuggestions(chatService.getSuggestionCards(messages));
-      },
-      error: (err) => {
-        console.error("Error in chat response:", err);
-        setIsLoading(false);
-        setCurrentResponseId(null);
-      }
-    });
+    chatRxFxService.request(userMessage);
   };
 
-  // Handle stopping response
   const handleStopResponse = () => {
-    if (responseSubscription.current) {
-      responseSubscription.current.unsubscribe();
-    }
-    
-    chatService.stopResponse();
-    
-    if (currentResponseId) {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === currentResponseId ? { ...msg, isComplete: true } : msg
-        )
-      );
-    }
-    
-    setIsLoading(false);
-    setCurrentResponseId(null);
+    chatRxFxService.cancelCurrent();
   };
 
-  // Handle suggestion click
   const handleSuggestionClick = (content: string) => {
     if (!isLoading) {
       handleSendMessage(content);
@@ -119,7 +89,8 @@ export function Chat() {
           <div className="flex flex-col items-center justify-center h-full">
             <h1 className="text-2xl font-bold mb-2 text-bot">AI Assistant</h1>
             <p className="text-muted-foreground text-center mb-8 max-w-md">
-              Ask me anything and I'll do my best to help you. Try one of the suggestions below to get started.
+              Ask me anything and I'll do my best to help you. Try one of the
+              suggestions below to get started.
             </p>
             <SuggestionCards
               suggestions={suggestions}
@@ -139,7 +110,7 @@ export function Chat() {
           </>
         )}
       </div>
-      
+
       <div className="border-t p-4">
         {messages.length > 0 && !isLoading && (
           <SuggestionCards
@@ -150,7 +121,7 @@ export function Chat() {
         <div className="max-w-2xl mx-auto">
           <ChatInput
             onSendMessage={handleSendMessage}
-            isLoading={isLoading}
+            isLoading={isActive}
             onStopResponse={handleStopResponse}
           />
         </div>
