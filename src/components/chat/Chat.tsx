@@ -1,16 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useService, useWhileMounted } from "@rxfx/react";
 import { UserMessage } from "@/types/chat";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { SuggestionCards } from "./SuggestionCards";
-import {
-  chatRxFxService,
-  initialSuggestions,
-  generateId,
-  getSuggestionCards,
-} from "@/services/chat-service";
 import { LoadingIndicator } from "./LoadingIndicator";
-import { useService, useWhileMounted } from "@rxfx/react";
+import { chatRxFxService, generateId } from "@/services/chat-service";
+import { initialSuggestions, getSuggestionCards } from "@/services/suggestions";
 
 export function Chat() {
   const { isActive, state: messages } = useService(chatRxFxService);
@@ -49,8 +45,8 @@ export function Chat() {
   // Handle suggestions coming and going
   useWhileMounted(() =>
     chatRxFxService.observe({
+      // finalized is: canceled|error|complete
       finalized() {
-        console.log("Another one bites the dust!");
         setSuggestions(getSuggestionCards(messages));
       },
       request() {
@@ -83,7 +79,7 @@ export function Chat() {
     <div className="flex flex-col h-full">
       <div
         ref={chatContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
+        className="flex-1 overflow-y-auto p-24 space-y-4"
       >
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">

@@ -1,5 +1,4 @@
-import { AssistantMessage, SuggestionCard, UserMessage } from "../types/chat";
-import { Observable } from "rxjs";
+import { AssistantMessage, UserMessage } from "../types/chat";
 import {
   createService,
   concat,
@@ -28,50 +27,11 @@ const mockResponses: Record<string, string> = {
     "Bonjour! Learning French is a wonderful journey. Here are some essential phrases to get started:\n\n- Hello = Bonjour (bon-zhoor)\n- How are you? = Comment allez-vous? (koh-mahn tah-lay voo)\n- My name is... = Je m'appelle... (zhuh mah-pel)\n- Thank you = Merci (mehr-see)\n- Please = S'il vous plaît (seel voo play)\n- Yes/No = Oui/Non (wee/non)\n\nConsistent practice is key to learning any language. Try watching French films with subtitles, listening to French music, or using language learning apps for daily practice. Bonne chance! (Good luck!)",
 };
 
-// Initial suggestion cards
-export const initialSuggestions: SuggestionCard[] = [
-  {
-    id: "1",
-    title: "Capabilities",
-    content: "What can you do?",
-  },
-  {
-    id: "2",
-    title: "Humor",
-    content: "Tell me a joke",
-  },
-  {
-    id: "3",
-    title: "Creativity",
-    content: "Write a short poem about technology",
-  },
-];
-
-// Additional suggestion cards based on conversation
-export const followUpSuggestions: SuggestionCard[] = [
-  {
-    id: "4",
-    title: "AI Explainer",
-    content: "Explain how AI works",
-  },
-  {
-    id: "5",
-    title: "Language Learning",
-    content: "Help me learn French",
-  },
-  {
-    id: "6",
-    title: "Creative",
-    content: "Write a short story about an adventure",
-  },
-];
-
 // Helper function to generate UUID
 export function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
-const WORDS_PER_CHUNK = 1;
 const CHUNK_DELAY = 150;
 const SPY_TO_CONSOLE = true;
 
@@ -107,7 +67,7 @@ export const chatRxFxService = createService<
 
     return after(initialDelay, wordStream);
   },
-  // Reducer
+  // Reducer (immutable with immer)
   (actions) =>
     produce((messages = [], event) => {
       if (actions.isRequest(event)) {
@@ -126,7 +86,6 @@ export const chatRxFxService = createService<
         // prefix only the request in state, so updates find the response
         messages.push({ ...userMessage, id: `req-${origId}` });
         messages.push(assistantMessage);
-        // return [...messages, userMessage, assistantMessage];
       }
       if (actions.isResponse(event)) {
         const chunk = event.payload;
@@ -135,17 +94,7 @@ export const chatRxFxService = createService<
         );
         response.content += chunk.text;
       }
-      if (actions.isCompletion(event)) {
-        // console.log({ completion: event });
-      }
+
       return messages;
     })
 );
-
-// Method to get relevant suggestion cards based on conversation
-export function getSuggestionCards(messages: Message[]): SuggestionCard[] {
-  // In a real app, we would analyze the conversation and provide relevant suggestions
-  // For this mock, we'll return initial suggestions for new conversations
-  // and follow-up suggestions for existing conversations
-  return messages.length <= 1 ? initialSuggestions : followUpSuggestions;
-}
