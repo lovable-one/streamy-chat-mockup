@@ -47,25 +47,7 @@ export const chatRxFxService = createService<
   "messages",
   // Handler/Effect/Response Observable
   (userMessage) => {
-    const responseText =
-      mockResponses[userMessage.content] || mockResponses["default"];
-    const words = responseText.split(" ");
-    const initialDelay =
-      userMessage.content === "What can you do?" ? 3000 : 800;
-
-    // Looks like:  ( after  )(  after  )( after)( after )
-    //               --->word1----->word2-->word3--->word4...
-    // and each chunk is tagged with the request it was for
-    const wordStream = concat(
-      ...words.map((word) => {
-        return after(randomizePreservingAverage(CHUNK_DELAY), {
-          requestId: userMessage.id,
-          text: `${word} `,
-        });
-      })
-    );
-
-    return after(initialDelay, wordStream);
+    return getWordStream(userMessage);
   },
   // Reducer (immutable with immer)
   (actions) =>
@@ -98,3 +80,23 @@ export const chatRxFxService = createService<
       return messages;
     })
 );
+function getWordStream(userMessage: UserMessage) {
+  const responseText = mockResponses[userMessage.content] || mockResponses["default"];
+  const words = responseText.split(" ");
+  const initialDelay = userMessage.content === "What can you do?" ? 3000 : 800;
+
+  // Looks like:  ( after  )(  after  )( after)( after )
+  //               --->word1----->word2-->word3--->word4...
+  // and each chunk is tagged with the request it was for
+  const wordStream = concat(
+    ...words.map((word) => {
+      return after(randomizePreservingAverage(CHUNK_DELAY), {
+        requestId: userMessage.id,
+        text: `${word} `,
+      });
+    })
+  );
+
+  return after(initialDelay, wordStream);
+}
+

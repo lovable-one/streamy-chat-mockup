@@ -17,35 +17,36 @@ export function Chat() {
   // we need separate steate ONLY becaue we are wishing to include
   // only the time before the first response as loading time - though
   // it is still active and 'loading'/streaming after that
-  const [isLoading, setIsLoading] = useState(false);
+  const [isPending, setIsPending] = useState(false);
 
-  // Scroll to bottom when messages change
+  // #region Scroll to bottom when messages change
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop =
         chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+  // #endregion
 
-  // Handle loading state separate from Active
+  // #region Derive isPending state from time between `started` and `next` events
   useWhileMounted(() =>
     chatRxFxService.observe({
       started() {
-        setIsLoading(true);
+        setIsPending(true);
       },
       next() {
-        setIsLoading(false);
+        setIsPending(false);
       },
       finalized() {
-        setIsLoading(false);
+        setIsPending(false);
       },
     })
   );
+  //#endregion
 
-  // Handle suggestions coming and going
+  // #region Set and clear suggestions
   useWhileMounted(() =>
     chatRxFxService.observe({
-      // finalized is: canceled|error|complete
       finalized() {
         setSuggestions(getSuggestionCards(messages));
       },
@@ -54,6 +55,9 @@ export function Chat() {
       },
     })
   );
+  // #endregion
+
+  // #region Handlers
 
   const handleSendMessage = (content: string) => {
     const userMessage: UserMessage = {
@@ -70,10 +74,11 @@ export function Chat() {
   };
 
   const handleSuggestionClick = (content: string) => {
-    if (!isLoading) {
+    if (!isPending) {
       handleSendMessage(content);
     }
   };
+  //#endregion
 
   return (
     <div className="flex flex-col h-full">
@@ -98,7 +103,7 @@ export function Chat() {
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}
-            {isLoading && (
+            {isPending && (
               <div className="flex justify-start ml-12">
                 <LoadingIndicator />
               </div>
@@ -108,7 +113,7 @@ export function Chat() {
       </div>
 
       <div className="border-t p-4">
-        {messages.length > 0 && !isLoading && (
+        {messages.length > 0 && !isPending && (
           <SuggestionCards
             suggestions={suggestions}
             onSuggestionClick={handleSuggestionClick}
