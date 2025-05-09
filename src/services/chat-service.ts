@@ -5,7 +5,9 @@ import {
   after,
   randomizePreservingAverage,
   defaultBus,
+  LifecycleEventMatchers,
 } from "@rxfx/service";
+import { createEffect } from "@rxfx/effect";
 import { produce } from "immer";
 
 import { Message, Chunk } from "@/types/chat";
@@ -32,69 +34,116 @@ export function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
-const CHUNK_DELAY = 150;
+const CHUNK_DELAY = 250;
+const PENDING_DELAY = 800;
+const LONGER_PENDING_DELAY = 3000;
 const SPY_TO_CONSOLE = true;
 
 defaultBus.reset();
 void (SPY_TO_CONSOLE && defaultBus.spy(console.log));
 
-export const chatRxFxService = createService<
-  UserMessage,
-  Chunk,
-  Error,
-  Message[]
->(
-  "messages",
-  // Handler/Effect/Response Observable
-  (userMessage) => {
-    const responseText =
-      mockResponses[userMessage.content] || mockResponses["default"];
-    const words = responseText.split(" ");
-    const initialDelay =
-      userMessage.content === "What can you do?" ? 3000 : 800;
+// export const chatRxFxService = createService<
+//   UserMessage,
+//   Chunk,
+//   Error,
+//   Message[]
+// >("messages", getWordStream, reducerFactory);
 
-    // Looks like:  ( after  )(  after  )( after)( after )
-    //               --->word1----->word2-->word3--->word4...
-    // and each chunk is tagged with the request it was for
-    const wordStream = concat(
-      ...words.map((word) => {
-        return after(randomizePreservingAverage(CHUNK_DELAY), {
-          requestId: userMessage.id,
-          text: `${word} `,
-        });
-      })
-    );
-
-    return after(initialDelay, wordStream);
-  },
-  // Reducer (immutable with immer)
-  (actions) =>
-    produce((messages = [], event) => {
-      if (actions.isRequest(event)) {
-        const userMessage = event.payload;
-        const origId = "" + userMessage.id;
-
-        // create placeholder
-        const assistantMessage: AssistantMessage = {
-          id: origId,
-          content: "",
-          role: "assistant",
-          createdAt: new Date(),
-          isComplete: false,
-        };
-
-        // prefix only the request in state, so updates find the response
-        messages.push({ ...userMessage, id: `req-${origId}` });
-        messages.push(assistantMessage);
-      }
-      if (actions.isResponse(event)) {
-        const chunk = event.payload;
-        const response = messages.find(
-          (m) => m.id === chunk.requestId && m.role === "assistant"
-        );
-        response.content += chunk.text;
-      }
-
-      return messages;
-    })
+export const chatFx = createEffect<UserMessage, Chunk, Error, Message[]>(
+  getWordStream
 );
+// Now the reducer will populate the BehaviorSubject: chatRxFxService.state
+chatFx.reduceWith(
+  produce((messages, event) => {
+    if (event.type === "request") {
+      const userMessage = event.payload;
+      const origId = "" + userMessage.id;
+
+      // create placeholder
+      const assistantMessage: AssistantMessage = {
+        id: origId,
+        content: "",
+        role: "assistant",
+        createdAt: new Date(),
+        isComplete: false,
+      };
+
+      // prefix only the request in state, so updates find the response
+      messages.push({ ...userMessage, id: `req-${origId}` });
+      messages.push(assistantMessage);
+    }
+    if (event.type === "response") {
+      const chunk = event.payload;
+      const response = messages.find(
+        (m) => m.id === chunk.requestId && m.role === "assistant"
+      );
+      response.content += chunk.text;
+    }
+
+    if (event.type === "canceled") {
+      const response = messages.find(
+        (m) => m.id === event.payload.id && m.role === "assistant"
+      );
+      response.content += " [Canceled]";
+    }
+
+    return messages;
+  }),
+  []
+);
+
+// Reducer (immutable with immer)
+// export function reducerFactory(actions: MatchersOf<typeof chatRxFxService>) {
+//   return produce((messages: Message[] = [], event) => {
+//     if (actions.isRequest(event)) {
+//       const userMessage = event.payload;
+//       const origId = "" + userMessage.id;
+
+//       // create placeholder
+//       const assistantMessage: AssistantMessage = {
+//         id: origId,
+//         content: "",
+//         role: "assistant",
+//         createdAt: new Date(),
+//         isComplete: false,
+//       };
+
+//       // prefix only the request in state, so updates find the response
+//       messages.push({ ...userMessage, id: `req-${origId}` });
+//       messages.push(assistantMessage);
+//     }
+//     if (actions.isResponse(event)) {
+//       const chunk = event.payload;
+//       const response = messages.find(
+//         (m) => m.id === chunk.requestId && m.role === "assistant"
+//       );
+//       response.content += chunk.text;
+//     }
+
+//     return messages;
+//   });
+// }
+
+function getWordStream(userMessage: UserMessage) {
+  const responseText =
+    mockResponses[userMessage.content] || mockResponses["default"];
+  const words = responseText.split(" ");
+  const initialDelay =
+    userMessage.content === "What can you do?"
+      ? PENDING_DELAY
+      : LONGER_PENDING_DELAY;
+
+  // Looks like:  ( after  )(  after  )( after)( after )
+  //               --->word1----->word2-->word3--->word4...
+  // and each chunk is tagged with the request it was for
+  const wordStream = concat(
+    ...words.map((word) => {
+      return after(randomizePreservingAverage(CHUNK_DELAY), {
+        requestId: userMessage.id,
+        text: `${word} `,
+      });
+    })
+  );
+
+  return after(initialDelay, wordStream);
+}

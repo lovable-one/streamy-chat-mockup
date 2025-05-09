@@ -1,4 +1,3 @@
-
 import React, { useState, FormEvent, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +10,11 @@ interface ChatInputProps {
   onStopResponse: () => void;
 }
 
-export function ChatInput({ onSendMessage, isLoading, onStopResponse }: ChatInputProps) {
+export function ChatInput({
+  onSendMessage,
+  isLoading,
+  onStopResponse,
+}: ChatInputProps) {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -29,7 +32,7 @@ export function ChatInput({ onSendMessage, isLoading, onStopResponse }: ChatInpu
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-    
+
     onSendMessage(input.trim());
     setInput("");
   };
