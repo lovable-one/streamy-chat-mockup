@@ -15,9 +15,9 @@ import { Message, Chunk } from "@/types/chat";
 const mockResponses: Record<string, string> = {
   default:
     "I'm an AI assistant created to help answer your questions and assist with various tasks. How can I help you today?",
-  // "What can you do?":
-  // "I can help you with a variety of tasks such as:\n\n- Answering questions on various topics\n- Providing creative content like stories or poems\n- Helping with problem-solving\n- Offering suggestions and recommendations\n- Explaining complex concepts in simple terms\n\nWhat would you like help with today?",
-  "What can you do?": "I can help you with a variety of tasks",
+  "What can you do?":
+    "I can help you with a variety of tasks such as:\n\n- Answering questions on various topics\n- Providing creative content like stories or poems\n- Helping with problem-solving\n- Offering suggestions and recommendations\n- Explaining complex concepts in simple terms\n\nWhat would you like help with today?",
+  // "What can you do?": "I can help you with a variety of tasks",
   "Tell me a joke":
     "Why don't scientists trust atoms?\n\nBecause they make up everything! 😄",
   "Write a short poem about technology":
@@ -77,6 +77,7 @@ const SPY_TO_CONSOLE = true;
 
 defaultBus.reset();
 void (SPY_TO_CONSOLE && defaultBus.spy(console.log));
+defaultBus.errors.subscribe(console.error);
 
 export const chatRxFxService = createService<
   UserMessage,
@@ -136,7 +137,7 @@ export const chatRxFxService = createService<
         response.content += chunk.text;
       }
       if (actions.isCompletion(event)) {
-        console.log({ completion: event });
+        // console.log({ completion: event });
       }
       return messages;
     })

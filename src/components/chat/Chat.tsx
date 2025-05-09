@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { AssistantMessage, Message, UserMessage } from "@/types/chat";
+import { UserMessage } from "@/types/chat";
 import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { SuggestionCards } from "./SuggestionCards";
@@ -10,30 +10,18 @@ import {
   generateId,
 } from "@/services/chat-service";
 import { LoadingIndicator } from "./LoadingIndicator";
-import { Subscription } from "rxjs";
-import { useService } from "@rxfx/react";
+import { useService, useWhileMounted } from "@rxfx/react";
 
 export function Chat() {
-  // XXX State could be kept by the Chat Service if @rxfx/service
-  // const [messages, setMessages] = useState<Message[]>([]);
-  // XXX Loading can also be inferred from the Service directly
-  // const [isLoading, setIsLoading] = useState(false);
+  const { isActive, state: messages } = useService(chatRxFxService);
 
-  const { isActive: isLoading, state: messages } = useService(chatRxFxService);
-
-  // Tables are a good match! One diff is req/res have same id. Will break UI?
-  console.table(messages);
-  // console.table(rxfxMessages);
-
-  // XXX currentResponseId is a hack derived variable not needed in a cleaner implementation
-  const [currentResponseId, setCurrentResponseId] = useState<string | null>(
-    null
-  );
   const [suggestions, setSuggestions] = useState(initialSuggestions);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // XXX This subscription should be a detail of the ChatService
-  const responseSubscription = useRef<Subscription | null>(null);
+  // we need separate steate ONLY becaue we are wishing to include
+  // only the time before the first response as loading time - though
+  // it is still active and 'loading'/streaming after that
+  const [isPending, setIsPending] = useState(false);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -43,95 +31,51 @@ export function Chat() {
     }
   }, [messages]);
 
-  // XXX This function can be basically only ChatService.send(content)
-  // Handle sending a message
+  // Handle pending state ("loading message")
+  // separate from Active state - enabled cancel button
+  useWhileMounted(() =>
+    chatRxFxService.observe({
+      started() {
+        setIsPending(true);
+      },
+      next() {
+        setIsPending(false);
+      },
+      finalized: () => {
+        setIsPending(false);
+      },
+    })
+  );
+
+  // Handle suggestions coming and going
+  useWhileMounted(() =>
+    chatRxFxService.observe({
+      finalized() {
+        console.log("Another one bites the dust!");
+        setSuggestions(chatService.getSuggestionCards(messages));
+      },
+      request() {
+        setSuggestions([]);
+      },
+    })
+  );
+
   const handleSendMessage = (content: string) => {
-    // Add user message
     const userMessage: UserMessage = {
       id: generateId(),
       content,
       role: "user",
       createdAt: new Date(),
     };
-
-    // Request of the rxfx service as well, for now..
     chatRxFxService.request(userMessage);
-
-    // // XXX ChatService detail
-    // setMessages((prev) => [...prev, userMessage]);
-
-    // // Create placeholder for assistant message
-    // const responseId = Math.random().toString(36).substring(2, 15);
-    // setCurrentResponseId(responseId);
-
-    // const assistantMessage: AssistantMessage = {
-    //   id: responseId,
-    //   content: "",
-    //   role: "assistant",
-    //   createdAt: new Date(),
-    //   isComplete: false,
-    // };
-
-    // setMessages((prev) => [...prev, assistantMessage]);
-
-    //   // XXX all of this can become part of ChatService
-    //   // Get streaming response
-    //   responseSubscription.current = chatService.sendMessage(content).subscribe({
-    //     next: (chunk) => {
-    //       setMessages((prevMessages) =>
-    //         prevMessages.map((msg) =>
-    //           msg.id === responseId
-    //             ? { ...msg, content: msg.content + chunk }
-    //             : msg
-    //         )
-    //       );
-    //     },
-    //     complete: () => {
-    //       setCurrentResponseId(null);
-    //       setMessages((prevMessages) =>
-    //         prevMessages.map((msg) =>
-    //           msg.id === responseId ? { ...msg, isComplete: true } : msg
-    //         )
-    //       );
-
-    //       // Upon completion of response, Update suggestions based on conversation
-    //       setSuggestions(chatService.getSuggestionCards(messages));
-    //     },
-    //     error: (err) => {
-    //       console.error("Error in chat response:", err);
-    //       setCurrentResponseId(null);
-    //     },
-    //   });
   };
 
-  // Upon completion of response, Update suggestions based on conversation
-  // setSuggestions(chatService.getSuggestionCards(messages));
-
-  // XXX More details of ChatService
-  // Handle stopping response
   const handleStopResponse = () => {
-    // if (responseSubscription.current) {
-    //   responseSubscription.current.unsubscribe();
-    // }
-
     chatRxFxService.cancelCurrent();
-    // chatService.stopResponse();
-
-    // if (currentResponseId) {
-    //   setMessages((prevMessages) =>
-    //     prevMessages.map((msg) =>
-    //       msg.id === currentResponseId ? { ...msg, isComplete: true } : msg
-    //     )
-    //   );
-    // }
-
-    // XXX Loading state need not be manipulated outside of ChatService
-    // setCurrentResponseId(null);
   };
 
-  // Handle suggestion click
   const handleSuggestionClick = (content: string) => {
-    if (!isLoading) {
+    if (!isPending) {
       handleSendMessage(content);
     }
   };
@@ -159,7 +103,7 @@ export function Chat() {
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}
-            {isLoading && (
+            {isPending && (
               <div className="flex justify-start ml-12">
                 <LoadingIndicator />
               </div>
@@ -169,7 +113,7 @@ export function Chat() {
       </div>
 
       <div className="border-t p-4">
-        {messages.length > 0 && !isLoading && (
+        {messages.length > 0 && !isPending && (
           <SuggestionCards
             suggestions={suggestions}
             onSuggestionClick={handleSuggestionClick}
@@ -178,8 +122,7 @@ export function Chat() {
         <div className="max-w-2xl mx-auto">
           <ChatInput
             onSendMessage={handleSendMessage}
-            // XXX need not pass in - this component could useService directly
-            isLoading={isLoading}
+            isLoading={isActive}
             onStopResponse={handleStopResponse}
           />
         </div>
