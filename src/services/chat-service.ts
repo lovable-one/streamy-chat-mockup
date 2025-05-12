@@ -42,17 +42,11 @@ const SPY_TO_CONSOLE = true;
 defaultBus.reset();
 void (SPY_TO_CONSOLE && defaultBus.spy(console.log));
 
-// export const chatRxFxService = createService<
-//   UserMessage,
-//   Chunk,
-//   Error,
-//   Message[]
-// >("messages", getWordStream, reducerFactory);
-
 export const chatFx = createEffect<UserMessage, Chunk, Error, Message[]>(
   getWordStream
 );
-// Now the reducer will populate the BehaviorSubject: chatRxFxService.state
+
+// Use the reducer to populate chatRxFxService.state
 chatFx.reduceWith(
   produce((messages, event) => {
     if (event.type === "request") {
@@ -84,45 +78,13 @@ chatFx.reduceWith(
       const response = messages.find(
         (m) => m.id === event.payload.id && m.role === "assistant"
       );
-      response.content += " [Canceled]";
+      response.content += " (Canceled)";
     }
 
     return messages;
   }),
-  []
+  [] // initial value - lost way down below :o
 );
-
-// Reducer (immutable with immer)
-// export function reducerFactory(actions: MatchersOf<typeof chatRxFxService>) {
-//   return produce((messages: Message[] = [], event) => {
-//     if (actions.isRequest(event)) {
-//       const userMessage = event.payload;
-//       const origId = "" + userMessage.id;
-
-//       // create placeholder
-//       const assistantMessage: AssistantMessage = {
-//         id: origId,
-//         content: "",
-//         role: "assistant",
-//         createdAt: new Date(),
-//         isComplete: false,
-//       };
-
-//       // prefix only the request in state, so updates find the response
-//       messages.push({ ...userMessage, id: `req-${origId}` });
-//       messages.push(assistantMessage);
-//     }
-//     if (actions.isResponse(event)) {
-//       const chunk = event.payload;
-//       const response = messages.find(
-//         (m) => m.id === chunk.requestId && m.role === "assistant"
-//       );
-//       response.content += chunk.text;
-//     }
-
-//     return messages;
-//   });
-// }
 
 function getWordStream(userMessage: UserMessage) {
   const responseText =

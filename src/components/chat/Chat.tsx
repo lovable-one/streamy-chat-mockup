@@ -5,11 +5,12 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { SuggestionCards } from "./SuggestionCards";
 import { LoadingIndicator } from "./LoadingIndicator";
-import { chatFx as chatService, generateId } from "@/services/chat-service";
+import { chatFx, generateId } from "@/services/chat-service";
 import { initialSuggestions, getSuggestionCards } from "@/services/suggestions";
 
 export function Chat() {
-  const { isActive, state: messages } = useService(chatService);
+  // LEFTOFF Type compatibility effect with useService
+  const { isActive, state: messages } = useService(chatFx);
 
   const [suggestions, setSuggestions] = useState(initialSuggestions);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -30,11 +31,11 @@ export function Chat() {
 
   // #region Derive isPending state from time between `started` and `next` events
   useWhileMounted(() =>
-    chatService.observe({
+    chatFx.observe({
       started() {
         setIsPending(true);
       },
-      next() {
+      response() {
         setIsPending(false);
       },
       finalized() {
@@ -46,9 +47,9 @@ export function Chat() {
 
   // #region Set and clear suggestions
   useWhileMounted(() =>
-    chatService.observe({
+    chatFx.observe({
       finalized() {
-        const newSuggestions = getSuggestionCards(chatService.state.value);
+        const newSuggestions = getSuggestionCards(chatFx.state.value);
         setSuggestions(newSuggestions);
       },
       request() {
@@ -67,11 +68,11 @@ export function Chat() {
       role: "user",
       createdAt: new Date(),
     };
-    chatService.request(userMessage);
+    chatFx.request(userMessage);
   };
 
   const handleStopResponse = () => {
-    chatService.cancelCurrent();
+    chatFx.cancelCurrent();
   };
 
   const handleSuggestionClick = (content: string) => {
