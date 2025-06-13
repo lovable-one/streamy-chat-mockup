@@ -1,4 +1,3 @@
-
 export type MessageRole = "user" | "assistant" | "system";
 
 export interface Message {
@@ -7,6 +6,17 @@ export interface Message {
   role: MessageRole;
   createdAt: Date;
   isComplete?: boolean;
+}
+export interface UserMessage extends Message {
+  role: "user";
+}
+export interface AssistantMessage extends Message {
+  role: "assistant";
+}
+
+export interface Chunk {
+  requestId: string;
+  text: string;
 }
 
 export interface SuggestionCard {
