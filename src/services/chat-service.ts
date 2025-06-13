@@ -1,11 +1,9 @@
 import { AssistantMessage, UserMessage } from "../types/chat";
 import {
-  createService,
   concat,
   after,
   randomizePreservingAverage,
   defaultBus,
-  LifecycleEventMatchers,
 } from "@rxfx/service";
 import { createEffect } from "@rxfx/effect";
 import { produce } from "immer";
@@ -45,6 +43,25 @@ void (SPY_TO_CONSOLE && defaultBus.spy(console.log));
 export const chatFx = createEffect<UserMessage, Chunk, Error, Message[]>(
   getWordStream
 );
+
+// Function to log all events from an rxfx/effect
+export function trace(
+  prefix = "rxfx-" + generateId(),
+  effect,
+  fn = console.log
+) {
+  return effect.observe({
+    request: fn.bind(null, `${prefix}/request`),
+    started: fn.bind(null, `${prefix}/started`),
+    response: fn.bind(null, `${prefix}/next`),
+    error: fn.bind(null, `${prefix}/error`),
+    complete: fn.bind(null, `${prefix}/complete`),
+    canceled: fn.bind(null, `${prefix}/canceled`),
+  });
+}
+
+// Call the function to start logging
+trace("chat", chatFx, console.log);
 
 // Use the reducer to populate chatRxFxService.state
 chatFx.reduceWith(

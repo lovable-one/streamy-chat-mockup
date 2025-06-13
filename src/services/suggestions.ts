@@ -40,7 +40,7 @@ export const followUpSuggestions: SuggestionCard[] = [
 
 // Method to get relevant suggestion cards based on conversation
 export function getSuggestionCards(messages: Message[]): SuggestionCard[] {
-  console.log("computing suggestions from ", messages);
+  // console.log("computing suggestions from ", messages);
   // In a real app, we would analyze the conversation and provide relevant suggestions
   // For this mock, we'll return initial suggestions for new conversations
   // and follow-up suggestions for existing conversations
