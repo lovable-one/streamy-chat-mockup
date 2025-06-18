@@ -10,15 +10,14 @@ import { initialSuggestions, getSuggestionCards } from "@/services/suggestions";
 
 export function Chat() {
   // LEFTOFF Type compatibility effect with useService
-  const { isActive, state: messages } = useService(chatFx);
+  const {
+    isActive,
+    isLoading: isPending,
+    state: messages,
+  } = useService(chatFx);
 
   const [suggestions, setSuggestions] = useState(initialSuggestions);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-
-  // we need separate steate ONLY becaue we are wishing to include
-  // only the time before the first response as loading time - though
-  // it is still active and 'loading'/streaming after that
-  const [isPending, setIsPending] = useState(false);
 
   // #region Scroll to bottom when messages change
   useEffect(() => {
@@ -28,22 +27,6 @@ export function Chat() {
     }
   }, [messages]);
   // #endregion
-
-  // #region Derive isPending state from time between `started` and `next` events
-  useWhileMounted(() =>
-    chatFx.observe({
-      started() {
-        setIsPending(true);
-      },
-      response() {
-        setIsPending(false);
-      },
-      finalized() {
-        setIsPending(false);
-      },
-    })
-  );
-  //#endregion
 
   // #region Set and clear suggestions
   useWhileMounted(() =>

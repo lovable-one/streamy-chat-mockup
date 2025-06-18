@@ -5,7 +5,7 @@ import {
   randomizePreservingAverage,
   defaultBus,
 } from "@rxfx/service";
-import { createEffect } from "@rxfx/effect";
+import { createEffect, trace } from "@rxfx/effect";
 import { produce } from "immer";
 
 import { Message, Chunk } from "@/types/chat";
@@ -44,24 +44,8 @@ export const chatFx = createEffect<UserMessage, Chunk, Error, Message[]>(
   getWordStream
 );
 
-// Function to log all events from an rxfx/effect
-export function trace(
-  prefix = "rxfx-" + generateId(),
-  effect,
-  fn = console.log
-) {
-  return effect.observe({
-    request: fn.bind(null, `${prefix}/request`),
-    started: fn.bind(null, `${prefix}/started`),
-    response: fn.bind(null, `${prefix}/next`),
-    error: fn.bind(null, `${prefix}/error`),
-    complete: fn.bind(null, `${prefix}/complete`),
-    canceled: fn.bind(null, `${prefix}/canceled`),
-  });
-}
-
 // Call the function to start logging
-trace("chat", chatFx, console.log);
+trace(chatFx, "chat", console.log);
 
 // Use the reducer to populate chatRxFxService.state
 chatFx.reduceWith(
