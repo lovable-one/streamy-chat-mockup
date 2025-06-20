@@ -7,6 +7,14 @@ import { SuggestionCards } from "./SuggestionCards";
 import { LoadingIndicator } from "./LoadingIndicator";
 import { chatFx, generateId } from "@/services/chat-service";
 import { initialSuggestions, getSuggestionCards } from "@/services/suggestions";
+import { fromEvent } from "rxjs";
+import { filter } from "rxjs/operators";
+
+// The Runnable for Esc keys
+const escapeKeyPress$ = fromEvent<KeyboardEvent>(document, "keydown").pipe(
+  // Filter for the Escape key
+  filter((event) => event.key === "Escape")
+);
 
 export function Chat() {
   // LEFTOFF Type compatibility effect with useService
@@ -26,6 +34,12 @@ export function Chat() {
         chatContainerRef.current.scrollHeight;
     }
   }, [messages]);
+  // #endregion
+
+  // #region Subscribe Esc key presses to cancelations
+  useWhileMounted(() =>
+    escapeKeyPress$.subscribe(() => chatFx.cancelCurrent())
+  );
   // #endregion
 
   // #region Set and clear suggestions

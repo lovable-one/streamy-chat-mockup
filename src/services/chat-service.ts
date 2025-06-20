@@ -7,8 +7,11 @@ import {
 } from "@rxfx/service";
 import { createEffect, trace } from "@rxfx/effect";
 import { produce } from "immer";
+import OpenAI from "openai";
 
 import { Message, Chunk } from "@/types/chat";
+import { from, Observable } from "rxjs";
+import { map } from "rxjs/operators";
 
 // Mock responses
 const mockResponses: Record<string, string> = {
@@ -40,8 +43,58 @@ const SPY_TO_CONSOLE = true;
 defaultBus.reset();
 void (SPY_TO_CONSOLE && defaultBus.spy(console.log));
 
+let openai;
+
+function getLLMStream(userMessage: UserMessage) {
+  openai ||= new OpenAI({
+    apiKey: window.OPEN_AI_KEY, // TODO: set this at startup time before any query
+    dangerouslyAllowBrowser: true,
+  });
+
+  return new Observable((notify) => {
+    let canceled = false; // in order to truly stop pulling from the
+
+    openai.chat.completions
+      .create({
+        model: "gpt-4.1",
+        messages: [
+          {
+            role: "user",
+            // content: "Say 'double bubble bath' 3 times fast.",
+            content: userMessage.content,
+          },
+        ],
+        stream: true,
+      })
+      .then(async (stream) => {
+        for await (const chunk of stream) {
+          const { delta } = chunk.choices[0];
+
+          if (!delta.content) continue;
+
+          // If we don't break on cancelation - the UI will not show chunks,
+          // but we can show we will still be consuming the network response. Cancel responsibly.
+          // console.log("chunk: " + delta.content);
+          if (canceled) break;
+
+          // notify.next args become a piece of Observable output
+          notify.next({
+            requestId: userMessage.id,
+            text: delta.content,
+          });
+        }
+        // and we should always complete when done
+        notify.complete();
+      });
+    return () => {
+      canceled = true;
+    };
+  });
+}
+
 export const chatFx = createEffect<UserMessage, Chunk, Error, Message[]>(
-  getWordStream
+  // getWordStream
+  getLLMStream
 );
 
 // Call the function to start logging
@@ -96,17 +149,46 @@ function getWordStream(userMessage: UserMessage) {
       ? PENDING_DELAY
       : LONGER_PENDING_DELAY;
 
-  // Looks like:  ( after  )(  after  )( after)( after )
+  const delayedWords = words.map((word) => {
+    return after(CHUNK_DELAY, {
+      requestId: userMessage.id,
+      text: `${word} `,
+    });
+  });
+
+  // wordStream looks like:  ( after  )(  after  )( after)( after )
   //               --->word1----->word2-->word3--->word4...
-  // and each chunk is tagged with the request it was for
-  const wordStream = concat(
-    ...words.map((word) => {
-      return after(randomizePreservingAverage(CHUNK_DELAY), {
-        requestId: userMessage.id,
-        text: `${word} `,
-      });
-    })
-  );
+  const wordStream = concat(...delayedWords);
 
   return after(initialDelay, wordStream);
+}
+
+/**
+ * Wraps an AsyncIterator in an Observable.
+ * @param asyncIterator The AsyncIterator to wrap.
+ * @returns An Observable that emits values from the AsyncIterator.
+ */
+export function asyncIteratorToObservable<T>(
+  asyncIterator: AsyncIterator<T> & AsyncIterable<T>
+): Observable<T> {
+  return new Observable<T>((subscriber) => {
+    const processNext = async () => {
+      try {
+        for await (const value of asyncIterator) {
+          subscriber.next(value);
+        }
+        subscriber.complete();
+      } catch (error) {
+        subscriber.error(error);
+      }
+    };
+
+    processNext();
+
+    return () => {
+      if (asyncIterator.return) {
+        asyncIterator.return();
+      }
+    };
+  });
 }
